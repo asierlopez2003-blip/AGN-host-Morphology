@@ -1,0 +1,7 @@
+########################################
+
+In this folder, the notebooks with the 
+test of every function will be used for 
+the data available in the data folder
+
+########################################

@@ -1,0 +1,41 @@
+# ======================================================================
+#  DATOS Y ARTEFACTOS CIENTIFICOS — solo en disco, NUNCA en el repositorio
+# ======================================================================
+data/
+results/
+informes/
+segmentation_sota/
+segmentacion_sota/
+docs/
+analisis_code/
+Bibliografia/
+statmorph-lsst/
+build_mode/
+graphify-out/
+
+# Datos observacionales (FITS) — jamas se publican
+*.fits
+*.fits.gz
+*.fz
+*.zip
+
+# ======================================================================
+#  PYTHON / JUPYTER
+# ======================================================================
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+*.nbconvert/
+.pytest_cache/
+.venv/
+
+# ======================================================================
+#  LOGS Y AUXILIARES DE LATEX
+# ======================================================================
+*.log
+*.aux
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz

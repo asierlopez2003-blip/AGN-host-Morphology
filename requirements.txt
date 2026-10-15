@@ -1,0 +1,9 @@
+numpy
+scipy
+pandas
+matplotlib
+astropy
+photutils
+scikit-image
+statmorph
+pycocotools

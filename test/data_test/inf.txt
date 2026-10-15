@@ -1,0 +1,6 @@
+#################################
+
+In this folder, the data that will be
+used for the test will be placed
+
+#################################
