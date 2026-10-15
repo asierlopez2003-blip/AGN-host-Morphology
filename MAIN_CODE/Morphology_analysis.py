@@ -184,17 +184,26 @@ class MorphologyAnalyzer:
                                nuclear_radius_mult=1.0, header=None,
                                pixel_scale=0.254):
         """
-        Nuclear AGN decontamination (Phase A) applied to the background-subtracted
-        image that statmorph receives:
+        Nuclear AGN decontamination applied to the background-subtracted
+        image:
+
           - psf_subtract : scale a Gaussian PSF (FWHM from the header SEEING/FWHM
             keyword, or the explicit psf_fwhm_px) to match the AGN core flux by
             least-squares aperture matching, then subtract it within
             psf_radius_mult*FWHM (Ramos Almeida et al. 2011; Bonaventura et al. 2025).
           - nuclear_mask : circular mask of nuclear_radius_mult*FWHM around the
             AGN, to be OR-ed into the statmorph segmentation mask.
+
         The AGN position is given in full-image pixel coordinates (agn_px,
         agn_py); the crop centre (crop_cx, crop_cy) maps it into the stamp.
-        Returns (image_sub, nuclear_mask_img, diagnostics dict).
+
+        --------------------------------------------------------------------
+        
+        Returns: 
+        
+            - image_sub: Background-subtracted image with nuclear decontamination applied (if requested)
+            - nuclear_mask_img: Boolean mask of the nuclear region (if nuclear_mask=True)
+            - diagnostics dict: Diagnostic information about the PSF subtraction and nuclear mask.
         """
         ny, nx = img_data.shape
         ax = nx // 2 + int(round(agn_px - crop_cx))
@@ -254,7 +263,17 @@ class MorphologyAnalyzer:
         Iteratively refines the centre of the target via elliptical isophote
         fitting (photutils.isophote.Ellipse, v2 / Option C). The centre of the
         outermost converged isophote is taken as the photometric centre of the
-        host galaxy. Returns (cx_ref, cy_ref, n_iter, converged).
+        host galaxy. 
+        
+        -------------------------------------------------------------------------------
+        
+        Returns 
+        
+            - cx_ref: Refined x-coordinate of the centre
+            - cy_ref: Refined y-coordinate of the centre
+            - n_iter: Number of iterations performed
+            - converged: Boolean indicating whether the refinement converged
+
         """
         from photutils.isophote import Ellipse, EllipseGeometry
         ny, nx = image.shape
@@ -360,6 +379,16 @@ class MorphologyAnalyzer:
         penalty: segments whose 180-rotation intersects into multiple disconnected 
         components are penalized (a local, project-specific criterion; it is NOT 
         taken from Pawlik et al. 2016 or Robotham et al. 2018).
+
+        ----------------------------------------------------------------------------
+
+        Returns:
+
+            - imagen_limpia: Clean image after background subtraction 
+            - ruido_mapa: Noise map
+            - segmask_total': Total segmentation mask
+            - segmap_final': Final segmentation map
+            - seg_params: Parameters used for segmentation
         """
         import itertools
         import warnings
@@ -586,6 +615,7 @@ class MorphologyAnalyzer:
             'segmap_final': final_map,
             'seg_params': used_seg_params
         }
+    
     def isophote_asymmetry(self, morph, asymmetry_isophotes=None):
         """
         Calculate isophote asymmetry following Sazonova et al. (2026).
