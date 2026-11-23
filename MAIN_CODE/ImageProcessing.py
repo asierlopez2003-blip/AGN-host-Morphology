@@ -75,7 +75,7 @@ def estimate_bg(img, mask, chipmask, max_iter=30, thresh=0.05, fit_bg=True, mask
     for i in range(max_iter):
         std_prev = std
     
-        segmap = detect_sources(img_conv, bg_sigma*std+median, npixels=detect_area, mask=chipmask, connectivity=4)
+        segmap = detect_sources(img_conv, bg_sigma*std+median, n_pixels=detect_area, mask=chipmask, connectivity=4)
         if segmap is None:
             no_sources = True
             segmask = np.zeros_like(img_copy, dtype=bool)
@@ -110,7 +110,7 @@ def estimate_bg(img, mask, chipmask, max_iter=30, thresh=0.05, fit_bg=True, mask
         axs[2].imshow(img-bkg.background, vmin=-std, vmax=std, cmap='gray')
         for ax in axs:
             ax.contour((segmask | chipmask)>0, colors=['C9'], levels=[0.9,1.1], linewidths=0.5)
-        plt.show()
+        #plt.show()
 
         answer = input("Subtract background? y | n\n")
         if answer == 'y': 
@@ -228,7 +228,7 @@ def _segmap(img, mask, bgsd, snr=15, min_area=5):
         segmap_hot (SegmentationImage): segmentation map from the hot run
     """
     # Detect all sources with high SNR
-    segmap = detect_sources(img, threshold=snr*bgsd, npixels=min_area, connectivity=4, mask=mask)
+    segmap = detect_sources(img, threshold=snr*bgsd, n_pixels=min_area, connectivity=4, mask=mask)
     return segmap
 
 def _deblended_mask(segmap_inp, segmask_hot, labels, cold_cent, overlap_thresh=0.2):
@@ -287,7 +287,7 @@ def _deblended_mask(segmap_inp, segmask_hot, labels, cold_cent, overlap_thresh=0
     segmap.relabel_consecutive()
     return segmap
 
-def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=32, contrast=0.001, overlap_thresh=0.2):
+def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, n_levels=32, contrast=0.001, overlap_thresh=0.2):
     """Get the segmentation map using a cold + hot run, first masking bright sources, then all faint sources
     other than the central galaxy.
     
@@ -298,7 +298,7 @@ def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=3
         hot_thresh (float): detection limit in terms of bgsd for the hot run
         cold_thresh (float): detection limit in terms of bgsd for the cold run
         contrast (float): between 0 and 1, regulates deblending strength
-        nlevels (int): number of levels to use in deblending
+        n_levels (int): number of levels to use in deblending
         
     Returns:
         segmask (np.ndarray): boolean array where all contaminant sources are masked as 1
@@ -323,7 +323,7 @@ def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=3
     
     #### Hot run
     segmap_hot = detect_sources(img_interp, threshold=hot_snr*bgsd, 
-                                 mask=mask_interp, npixels=min_area, connectivity=4)
+                                 mask=mask_interp, n_pixels=min_area, connectivity=4)
     
     # Mask all but the central source
     if segmap_hot is not None:
@@ -341,7 +341,7 @@ def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=3
 
     ####### Cold run ###########################
     segmap_cold = detect_sources(img_interp, threshold=cold_snr*bgsd, 
-                                 mask=mask_interp, npixels=min_area, connectivity=4)
+                                 mask=mask_interp, n_pixels=min_area, connectivity=4)
     if segmap_cold is None:
         print(f"No source detected at SNR={cold_snr}!")
         return None, None
@@ -353,7 +353,7 @@ def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=3
         return None, None
     
     # Deblend the central source only
-    cold_deblended = deblend_sources(img_interp, segmap_cold, npixels=min_area, contrast=contrast, progress_bar=False, nlevels=nlevels, labels=cold_cent)
+    cold_deblended = deblend_sources(img_interp, segmap_cold, n_pixels=min_area, contrast=contrast, progress_bar=False, n_levels=n_levels, labels=cold_cent)
 
     ######## Combining the two ###########################
     # 1. Mask all sources in the cold segmap except the central one
@@ -388,7 +388,7 @@ def get_segmap(img, mask, bgsd,  min_area=5, hot_snr=20, cold_snr=1.5, nlevels=3
 
     # Run a final source detection to get the segmap of the central source only
     segmap_final = detect_sources(img_interp, threshold=cold_snr*bgsd, 
-                                 mask=mask_interp | segmask, npixels=min_area, connectivity=4)
+                                 mask=mask_interp | segmask, n_pixels=min_area, connectivity=4)
     if segmap_final is None:
         print(f"No central source detected at SNR={cold_snr} in the final run!")
         return segmask, None

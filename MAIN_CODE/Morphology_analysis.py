@@ -404,7 +404,7 @@ class MorphologyAnalyzer:
         cy, cx = ny // 2, nx // 2  # Target centered at crop center
 
         bad_pixels_mask = np.isnan(img) | np.isinf(img)
-        img[bad_pixels_mask] = 0.0
+        #img[bad_pixels_mask] = 0.0
         chipmask = np.zeros_like(img, dtype=bool)
 
         # 1. Background Estimation
@@ -424,7 +424,7 @@ class MorphologyAnalyzer:
         # 2. Pre-smoothed image conditioning for detection
         if image_smooth is not None:
             img_for_detection = image_smooth.copy() - bkg_median
-            img_for_detection[bad_pixels_mask] = 0.0
+            #img_for_detection[bad_pixels_mask] = 0.0
         else:
             img_for_detection = img_limpia.copy()
 
@@ -457,7 +457,7 @@ class MorphologyAnalyzer:
                 segmask_temp, segmap_temp = ImageProcessing.get_segmap(
                     img=img_for_detection, mask=bad_pixels_mask, bgsd=bkg_std,
                     min_area=5, hot_snr=hot, cold_snr=cold,
-                    nlevels=32, contrast=contrast, overlap_thresh=overlap
+                    n_levels=32, contrast=contrast, overlap_thresh=overlap
                 )
 
                 if segmap_temp is None or np.sum(segmask_temp) == 0:
@@ -565,7 +565,7 @@ class MorphologyAnalyzer:
             segmask, segmap = ImageProcessing.get_segmap(
                 img=img_for_detection, mask=bad_pixels_mask, bgsd=bkg_std,
                 min_area=5, hot_snr=hot_snr, cold_snr=cold_snr,
-                nlevels=32, contrast=0.001, overlap_thresh=0.2
+                n_levels=32, contrast=0.001, overlap_thresh=0.2
             )
         except Exception as e:
             print(f" [x] ERROR: Error when using the get_segmap function: {e}")
@@ -666,17 +666,17 @@ class MorphologyAnalyzer:
         fig.colorbar(im1, ax=ax, fraction=0.046, pad=0.04)
 
         ax = axes[0, 1]
-        im2 = ax.imshow(SNR, origin='lower', cmap='gray_r')
+        im2 = ax.imshow(SNR, origin='lower', cmap='gray')
         ax.set_title('2. SNR image')
         fig.colorbar(im2, ax=ax, fraction=0.046, pad=0.04)
 
         ax = axes[1, 0]
-        ax.imshow(img, origin='lower', cmap='gray', norm=norm_img)
+        ax.imshow(SNR, origin='lower', cmap='gray', norm=norm_img)
         ax.imshow(mascara_contaminantes, origin='lower', cmap='Reds', alpha=0.3)
         ax.set_title('3. Contaminant Mask (Red)')
 
         ax = axes[1, 1]
-        ax.imshow(img, origin='lower', cmap='gray', norm=norm_img)
+        ax.imshow(SNR, origin='lower', cmap='gray', norm=norm_img)
         if segmap is not None:
             segmap_data = np.ma.masked_where(segmap.data == 0, segmap.data) if hasattr(segmap, 'data') else np.ma.masked_where(segmap == 0, segmap)
             ax.imshow(segmap_data, origin='lower', cmap='rainbow', alpha=0.6)
@@ -835,6 +835,7 @@ class MorphologyAnalyzer:
                 # refined centre so that subsequent morphological measurements (C,
                 # A, S, A_s, A_x) are centred on the galaxy, not the AGN.
                 # ====================================================================
+                
                 cent_off_x, cent_off_y = 0.0, 0.0
                 num_cent_iter = 0
                 if recenter and cropped_image_smooth is not None:
@@ -879,7 +880,7 @@ class MorphologyAnalyzer:
                         print("  [!] Recentered crop out of bounds; keeping WCS center.")
                         cent_off_x, cent_off_y = 0.0, 0.0
                         num_cent_iter = 0
-
+                
                 plt.figure()
                 plt.imshow(np.log10(cropped_image - np.min(cropped_image) + 1e-2), origin='lower', cmap='gray_r')
                 plt.title(f"Cropped {obj_id}")
@@ -907,6 +908,7 @@ class MorphologyAnalyzer:
                 # ===== STATMORPH =====
                 start_time = time.time()
                 img_data = np.array(segmap_result['imagen_limpia'].data if hasattr(segmap_result['imagen_limpia'], 'data') else segmap_result['imagen_limpia'], dtype=np.float64)
+
 
                 # ============================================================================
                 # NUCLEAR AGN DECONTAMINATION (Phase A)
@@ -983,9 +985,36 @@ class MorphologyAnalyzer:
                     self.plot_shape_asymmetry(morph, obj_id, analyzed_path)
 
                     # 1. Definimos la lista base del diccionario
+                    # 1. Definimos la lista base del diccionario
                     results = {
+                        # ==========================================
+                        # METADATOS Y PARÁMETROS PERSONALIZADOS
+                        # ==========================================
                         'Object_ID': obj_id,
                         'Redshift': redshift,
+                        
+                        # Parámetros de segmentación 
+                        'Hot_SNR': seg_params.get('Hot_SNR', np.nan),
+                        'Cold_SNR': seg_params.get('Cold_SNR', np.nan),
+                        'Contrast': seg_params.get('Contrast', np.nan),
+                        'Overlap': seg_params.get('Overlap', np.nan),
+                        
+                        # Diagnostic columns (v2)
+                        'Cent_Offset_X': cent_off_x,
+                        'Cent_Offset_Y': cent_off_y,
+                        'Num_Isophote_Iter': num_cent_iter,
+                        'Seg_Level_Chosen': seg_params.get('Cold_SNR', np.nan),
+                        
+                        # Phase A: nuclear AGN decontamination diagnostics
+                        'PSF_Sub_Flag': nuc_diag['PSF_Sub_Flag'],
+                        'PSF_FWHM_px': nuc_diag['PSF_FWHM_px'],
+                        'PSF_Amp_Sub': nuc_diag['PSF_Amp_Sub'],
+                        'PSF_Residual_Flux': nuc_diag['PSF_Residual_Flux'],
+                        'Nuclear_Mask_Radius_px': nuc_diag['Nuclear_Mask_Radius_px'],
+
+                        # ==========================================
+                        # STATMORPH: MORFOLOGÍA BÁSICA Y CAS
+                        # ==========================================
                         'Concentration (C)': morph.concentration,
                         'Asymmetry (A)': morph.asymmetry,
                         'Smoothness (S)': morph.smoothness,
@@ -993,22 +1022,100 @@ class MorphologyAnalyzer:
                         'Gini': morph.gini,
                         'M20': morph.m20,
                         'Flag': morph.flag,
-                        # Parámetros de segmentación (Correctamente implementados)
-                        'Hot_SNR': seg_params.get('Hot_SNR', np.nan),
-                        'Cold_SNR': seg_params.get('Cold_SNR', np.nan),
-                        'Contrast': seg_params.get('Contrast', np.nan),
-                        'Overlap': seg_params.get('Overlap', np.nan),
-                        # Diagnostic columns (v2): recentering offset and growth-curve level
-                        'Cent_Offset_X': cent_off_x,
-                        'Cent_Offset_Y': cent_off_y,
-                        'Num_Isophote_Iter': num_cent_iter,
-                        'Seg_Level_Chosen': seg_params.get('Cold_SNR', np.nan),
-                        # Phase A: nuclear AGN decontamination diagnostics
-                        'PSF_Sub_Flag': nuc_diag['PSF_Sub_Flag'],
-                        'PSF_FWHM_px': nuc_diag['PSF_FWHM_px'],
-                        'PSF_Amp_Sub': nuc_diag['PSF_Amp_Sub'],
-                        'PSF_Residual_Flux': nuc_diag['PSF_Residual_Flux'],
-                        'Nuclear_Mask_Radius_px': nuc_diag['Nuclear_Mask_Radius_px']
+                        
+                        # ==========================================
+                        # STATMORPH: MORFOLOGÍA AVANZADA (MID, Bulge/Merger)
+                        # ==========================================
+                        'Multimode': morph.multimode,
+                        'Intensity': morph.intensity,
+                        'Deviation': morph.deviation,
+                        'Outer_Asymmetry': morph.outer_asymmetry,
+                        'RMS_Asymmetry2': morph.rms_asymmetry2,
+                        'Gini_M20_Bulge': morph.gini_m20_bulge,
+                        'Gini_M20_Merger': morph.gini_m20_merger,
+
+                        # ==========================================
+                        # STATMORPH: TAMAÑOS, RADIOS Y FLUJOS
+                        # ==========================================
+                        'R20': morph.r20,
+                        'R50': morph.r50,
+                        'R80': morph.r80,
+                        'Rpetro_Circ': morph.rpetro_circ,
+                        'Rpetro_Ellip': morph.rpetro_ellip,
+                        'Rhalf_Circ': morph.rhalf_circ,
+                        'Rhalf_Ellip': morph.rhalf_ellip,
+                        'Rmax_Circ': morph.rmax_circ,
+                        'Rmax_Ellip': morph.rmax_ellip,
+                        'Flux_Circ': morph.flux_circ,
+                        'Flux_Ellip': morph.flux_ellip,
+
+                        # ==========================================
+                        # STATMORPH: FORMA, CENTROIDES Y ELIPTICIDAD
+                        # ==========================================
+                        'xc_centroid': morph.xc_centroid,
+                        'yc_centroid': morph.yc_centroid,
+                        'ellipticity_centroid': morph.ellipticity_centroid,
+                        'elongation_centroid': morph.elongation_centroid,
+                        'orientation_centroid': morph.orientation_centroid,
+                        'xc_asymmetry': morph.xc_asymmetry,
+                        'yc_asymmetry': morph.yc_asymmetry,
+                        'ellipticity_asymmetry': morph.ellipticity_asymmetry,
+                        'elongation_asymmetry': morph.elongation_asymmetry,
+                        'orientation_asymmetry': morph.orientation_asymmetry,
+
+                        # ==========================================
+                        # STATMORPH: AJUSTE SERSIC SIMPLE
+                        # ==========================================
+                        'Sersic_N': morph.sersic_n,
+                        'Sersic_Amplitude': morph.sersic_amplitude,
+                        'Sersic_Rhalf': morph.sersic_rhalf,
+                        'Sersic_Ellip': morph.sersic_ellip,
+                        'Sersic_Theta': morph.sersic_theta,
+                        'Sersic_xc': morph.sersic_xc,
+                        'Sersic_yc': morph.sersic_yc,
+                        'Sersic_Chi2_DoF': morph.sersic_chi2_dof,
+                        'Sersic_AIC': morph.sersic_aic,
+                        'Sersic_BIC': morph.sersic_bic,
+                        'Sersic_Runtime': morph.sersic_runtime,
+                        'Flag_Sersic': morph.flag_sersic,
+
+                        # ==========================================
+                        # STATMORPH: AJUSTE SERSIC DOBLE (Bulbo + Disco)
+                        # ==========================================
+                        'DoubleSersic_N1': morph.doublesersic_n1,
+                        'DoubleSersic_N2': morph.doublesersic_n2,
+                        'DoubleSersic_Amp1': morph.doublesersic_amplitude1,
+                        'DoubleSersic_Amp2': morph.doublesersic_amplitude2,
+                        'DoubleSersic_Rhalf1': morph.doublesersic_rhalf1,
+                        'DoubleSersic_Rhalf2': morph.doublesersic_rhalf2,
+                        'DoubleSersic_Ellip1': morph.doublesersic_ellip1,
+                        'DoubleSersic_Ellip2': morph.doublesersic_ellip2,
+                        'DoubleSersic_Theta1': morph.doublesersic_theta1,
+                        'DoubleSersic_Theta2': morph.doublesersic_theta2,
+                        'DoubleSersic_xc': morph.doublesersic_xc,
+                        'DoubleSersic_yc': morph.doublesersic_yc,
+                        'DoubleSersic_Chi2_DoF': morph.doublesersic_chi2_dof,
+                        'DoubleSersic_AIC': morph.doublesersic_aic,
+                        'DoubleSersic_BIC': morph.doublesersic_bic,
+
+                        # ==========================================
+                        # STATMORPH: FONDO (SKY), SEÑAL Y TÉCNICOS
+                        # ==========================================
+                        'Sky_Mean': morph.sky_mean,
+                        'Sky_Median': morph.sky_median,
+                        'Sky_Sigma': morph.sky_sigma,
+                        'SN_Per_Pixel': morph.sn_per_pixel,
+                        'Label_Source': morph.label,
+                        'Num_BadPixels': morph.num_badpixels,
+                        'Runtime': morph.runtime,
+                        
+                        # Coordenadas relativas del "stamp" (caja de recorte interno)
+                        'nx_stamp': morph.nx_stamp,
+                        'ny_stamp': morph.ny_stamp,
+                        'xmin_stamp': morph.xmin_stamp,
+                        'xmax_stamp': morph.xmax_stamp,
+                        'ymin_stamp': morph.ymin_stamp,
+                        'ymax_stamp': morph.ymax_stamp
                     }
 
                     # 2. Desempaquetamos A_X en columnas numéricas independientes
@@ -1021,9 +1128,7 @@ class MorphologyAnalyzer:
                             results[f'A_x_{name_lvl}'] = np.nan
 
                     print(f"\n  [✓]  Morphology parameters calculated successfully\n ")
-                    for name, value in results.items():
-                        if name == 'Object_ID': print(f"\n=========== {value} MORPHOLOGICAL RESULTS ===========\n")
-                        else: print(f"  {name}: {value:.4f}" if isinstance(value, float) else f"  {name}: {value}")
+
                     return results
                 else:
                     print("  Statmorph found no valid sources.")
